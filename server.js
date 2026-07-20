@@ -65,6 +65,9 @@ app.post("/api/info", async (req, res) => {
       extractor: data.extractor,
     });
   } catch (e) {
+    console.error("=== INFO FETCH ERROR ===");
+    console.error(e.message);
+    console.error("=========================");
     res.status(500).json({ error: "Video info nahi mil saki. Link check karein.", details: e.message });
   }
 });
@@ -91,6 +94,9 @@ app.post("/api/download", async (req, res) => {
     });
   } catch (e) {
     cleanup(outPath);
+    console.error("=== FULL DOWNLOAD ERROR ===");
+    console.error(e.message);
+    console.error("============================");
     res.status(500).json({ error: "Download fail hogaya.", details: e.message });
   }
 });

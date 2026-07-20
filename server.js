@@ -52,7 +52,7 @@ function cleanup(filePath) {
 // 1) Get video info (title, thumbnail, duration)
 app.post("/api/info", async (req, res) => {
   const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "URL zaroori hai" });
+  if (!url) return res.status(400).json({ error: "URL is required" });
 
   try {
     const output = await runYtDlp(["-j", "--no-playlist", url]);
@@ -68,14 +68,14 @@ app.post("/api/info", async (req, res) => {
     console.error("=== INFO FETCH ERROR ===");
     console.error(e.message);
     console.error("=========================");
-    res.status(500).json({ error: "Video info nahi mil saki. Link check karein.", details: e.message });
+    res.status(500).json({ error: "Could not fetch video info. Please check the link.", details: e.message });
   }
 });
 
 // 2) Download full video (best quality mp4)
 app.post("/api/download", async (req, res) => {
   const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "URL zaroori hai" });
+  if (!url) return res.status(400).json({ error: "URL is required" });
 
   const outPath = tempFilePath("mp4");
 
@@ -97,7 +97,7 @@ app.post("/api/download", async (req, res) => {
     console.error("=== FULL DOWNLOAD ERROR ===");
     console.error(e.message);
     console.error("============================");
-    res.status(500).json({ error: "Download fail hogaya.", details: e.message });
+    res.status(500).json({ error: "Download failed.", details: e.message });
   }
 });
 
@@ -163,12 +163,12 @@ function ffmpegTrim(inputPath, outputPath, startSeconds, endSeconds) {
 app.post("/api/clip", async (req, res) => {
   const { url, startSeconds, endSeconds } = req.body;
   if (!url || startSeconds === undefined || endSeconds === undefined) {
-    return res.status(400).json({ error: "URL, start aur end time zaroori hain" });
+    return res.status(400).json({ error: "URL, start time, and end time are required" });
   }
   const start = Number(startSeconds);
   const end = Number(endSeconds);
   if (end <= start) {
-    return res.status(400).json({ error: "End time, start time se bada hona chahiye" });
+    return res.status(400).json({ error: "End time must be after start time" });
   }
 
   const isTwitch = /twitch\.tv/i.test(url);
@@ -194,7 +194,7 @@ app.post("/api/clip", async (req, res) => {
         if (err) console.error("Clip send error:", err.message);
       });
     } catch (e) {
-      console.warn("Section download fail, full-download+trim try kar rahe hain:", e.message);
+      console.warn("Section download failed, trying full-download+trim:", e.message);
       cleanup(outPath);
     }
   }
@@ -202,14 +202,14 @@ app.post("/api/clip", async (req, res) => {
   // --- Path B: direct-stream seek (no full download to disk) ---
   try {
     const urls = await getDirectStreamUrls(url);
-    if (urls.length === 0) throw new Error("Direct stream URL nahi mila");
+    if (urls.length === 0) throw new Error("Direct stream URL not found");
     await ffmpegTrimFromUrls(urls, outPath, start, end);
     return res.download(outPath, fileName, (err) => {
       cleanup(outPath);
       if (err) console.error("Clip send error:", err.message);
     });
   } catch (e) {
-    console.warn("Direct-stream trim fail, full-download+trim try kar rahe hain:", e.message);
+    console.warn("Direct-stream trim failed, trying full-download+trim:", e.message);
     cleanup(outPath);
   }
 
@@ -243,12 +243,12 @@ app.post("/api/clip", async (req, res) => {
     console.error("===========================");
     res.status(500).json({
       error: isTwitch
-        ? "Twitch clip download fail hogaya. Agar VOD subscriber-only hai ya expire ho gaya hai to yeh kaam nahi karega."
-        : "Clip download fail hogaya.",
+        ? "Twitch clip download failed. This won't work if the VOD is subscriber-only or has expired."
+        : "Clip download failed.",
       details: e.message,
     });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server chal raha hai: http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running: http://localhost:${PORT}`));

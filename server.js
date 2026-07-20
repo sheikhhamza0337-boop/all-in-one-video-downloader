@@ -39,6 +39,18 @@ function secondsToTimestamp(totalSeconds) {
 const TEMP_DIR = path.join(__dirname, "temp_downloads");
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
+// Optional YouTube cookies (needed when YouTube blocks a server IP as a bot).
+// Set the YT_COOKIES environment variable in Render with the full contents
+// of a Netscape-format cookies.txt file. We write it to disk once at startup.
+const COOKIES_PATH = path.join(__dirname, "cookies.txt");
+if (process.env.YT_COOKIES) {
+  fs.writeFileSync(COOKIES_PATH, process.env.YT_COOKIES);
+  console.log("YouTube cookies loaded from environment variable.");
+}
+function cookieArgs() {
+  return fs.existsSync(COOKIES_PATH) ? ["--cookies", COOKIES_PATH] : [];
+}
+
 function tempFilePath(ext) {
   return path.join(TEMP_DIR, `dl_${crypto.randomBytes(8).toString("hex")}.${ext}`);
 }
@@ -55,7 +67,7 @@ app.post("/api/info", async (req, res) => {
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   try {
-    const output = await runYtDlp(["-j", "--no-playlist", url]);
+    const output = await runYtDlp(["-j", "--no-playlist", ...cookieArgs(), url]);
     const data = JSON.parse(output);
     res.json({
       title: data.title,
@@ -84,6 +96,7 @@ app.post("/api/download", async (req, res) => {
       "-f", "bv*+ba/b",
       "--merge-output-format", "mp4",
       "--no-playlist",
+      ...cookieArgs(),
       "-o", outPath,
       url,
     ]);
@@ -103,7 +116,7 @@ app.post("/api/download", async (req, res) => {
 
 function getDirectStreamUrls(url) {
   // Returns array of direct media URLs (video, audio separately if applicable)
-  return runYtDlp(["-f", "bv*+ba/b", "-g", "--no-playlist", url]).then((out) =>
+  return runYtDlp(["-f", "bv*+ba/b", "-g", "--no-playlist", ...cookieArgs(), url]).then((out) =>
     out.trim().split("\n").filter(Boolean)
   );
 }
@@ -186,6 +199,7 @@ app.post("/api/clip", async (req, res) => {
         "--no-playlist",
         "--download-sections", `*${startTs}-${endTs}`,
         "--force-keyframes-at-cuts",
+        ...cookieArgs(),
         "-o", outPath,
         url,
       ]);
@@ -221,6 +235,7 @@ app.post("/api/clip", async (req, res) => {
       "-f", "bv*+ba/b",
       "--merge-output-format", "mp4",
       "--no-playlist",
+      ...cookieArgs(),
       "-o", fullPath,
       url,
     ];

@@ -133,7 +133,10 @@ function ffmpegTrimFromUrls(urls, outputPath, startSeconds, endSeconds) {
     if (urls.length > 1) {
       args.push("-map", "0:v:0", "-map", "1:a:0");
     }
-    args.push("-c:v", "libx264", "-c:a", "aac", "-avoid_negative_ts", "make_zero", outputPath);
+    // Stream copy (no re-encoding) — far lighter on CPU/RAM than libx264,
+    // important on resource-limited hosting. Trade-off: cut point snaps to
+    // the nearest keyframe instead of being frame-exact.
+    args.push("-c", "copy", "-avoid_negative_ts", "make_zero", outputPath);
 
     const proc = spawn("ffmpeg", args);
     let err = "";
@@ -153,8 +156,7 @@ function ffmpegTrim(inputPath, outputPath, startSeconds, endSeconds) {
       "-ss", String(startSeconds),
       "-i", inputPath,
       "-t", String(duration),
-      "-c:v", "libx264",
-      "-c:a", "aac",
+      "-c", "copy",
       "-avoid_negative_ts", "make_zero",
       outputPath,
     ]);
@@ -232,7 +234,7 @@ app.post("/api/clip", async (req, res) => {
   const trimmedPath = tempFilePath("mp4");
   try {
     const ytArgs = [
-      "-f", "bv*+ba/b",
+      "-f", "bv*[height<=720]+ba/b[height<=720]",
       "--merge-output-format", "mp4",
       "--no-playlist",
       ...cookieArgs(),
